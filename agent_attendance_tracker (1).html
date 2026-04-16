@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentPulse — Attendance Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #f0f4ff;
+  --surface:   #ffffff;
+  --surface2:  #f7f9ff;
+  --border:    #d4daf5;
+  --border2:   #c2cae8;
+  --text:      #1a1f3c;
+  --text2:     #4a5280;
+  --text3:     #8890b8;
+  --primary:   #4361ee;
+  --primary-l: #eef1ff;
+  --wfh:       #0ea5e9;
+  --wfh-bg:    #e0f5ff;
+  --wfh-ring:  #bae8ff;
+  --leave:     #f59e0b;
+  --leave-bg:  #fffbeb;
+  --leave-ring:#fde68a;
+  --emergency: #ef4444;
+  --emg-bg:    #fff1f1;
+  --emg-ring:  #fecaca;
+  --medical:   #8b5cf6;
+  --med-bg:    #f5f0ff;
+  --med-ring:  #ddd6fe;
+  --perm:      #10b981;
+  --perm-bg:   #ecfdf5;
+  --perm-ring: #a7f3d0;
+  --shadow:    0 1px 3px #1a1f3c14, 0 4px 16px #1a1f3c08;
+  --shadow-lg: 0 4px 24px #1a1f3c16, 0 2px 8px #1a1f3c0a;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  min-height: 100vh;
+  background-image:
+    radial-gradient(ellipse at 10% 0%, #c7d7ff55 0%, transparent 55%),
+    radial-gradient(ellipse at 90% 100%, #d4f5e955 0%, transparent 55%);
+}
+
+/* HEADER */
+header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  box-shadow: var(--shadow);
+}
+.logo {
+  display: flex; align-items: center; gap: 10px;
+  font-weight: 800; font-size: 1.15rem; color: var(--text); letter-spacing: -0.3px;
+}
+.logo-dot {
+  width:28px;height:28px;
+  background: linear-gradient(135deg,var(--primary),#7c3aed);
+  border-radius:8px;display:flex;align-items:center;justify-content:center;
+}
+.logo-dot svg{width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2;}
+.date-chip {
+  background:var(--primary-l);border:1px solid #c7d2fe;border-radius:8px;
+  padding:6px 14px;font-size:0.82rem;font-weight:600;color:var(--primary);
+  font-family:'JetBrains Mono',monospace;letter-spacing:0.5px;
+}
+
+/* MAIN */
+.main{max-width:1500px;margin:0 auto;padding:28px 24px 60px;}
+
+/* CONTROLS */
+.controls-bar{display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap;}
+.date-wrap{
+  display:flex;align-items:center;gap:8px;
+  background:var(--surface);border:1.5px solid var(--border);
+  border-radius:10px;padding:8px 16px;box-shadow:var(--shadow);
+}
+.date-wrap label{font-size:0.72rem;font-weight:700;color:var(--text3);letter-spacing:1px;text-transform:uppercase;}
+.date-wrap input[type="date"]{
+  background:transparent;border:none;color:var(--primary);
+  font-family:'JetBrains Mono',monospace;font-size:0.9rem;font-weight:600;cursor:pointer;outline:none;
+}
+.btn{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:9px 20px;border-radius:10px;border:none;cursor:pointer;
+  font-family:'Plus Jakarta Sans',sans-serif;font-size:0.875rem;font-weight:700;
+  letter-spacing:0.2px;transition:all 0.18s;white-space:nowrap;
+}
+.btn-primary{background:var(--primary);color:#fff;box-shadow:0 2px 12px #4361ee44;}
+.btn-primary:hover{background:#3451d1;transform:translateY(-1px);}
+.btn-green{background:var(--perm);color:#fff;box-shadow:0 2px 12px #10b98144;}
+.btn-green:hover{background:#059669;transform:translateY(-1px);}
+.btn-red{background:#fee2e2;color:var(--emergency);border:1.5px solid #fecaca;}
+.btn-red:hover{background:#fecaca;transform:translateY(-1px);}
+
+/* SUMMARY CARDS */
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(138px,1fr));gap:14px;margin-bottom:24px;}
+.s-card{
+  background:var(--surface);border:1.5px solid var(--border);
+  border-radius:14px;padding:18px 20px;box-shadow:var(--shadow);
+  position:relative;overflow:hidden;
+}
+.s-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:14px 14px 0 0;}
+.c-total::before{background:linear-gradient(90deg,var(--primary),#7c3aed);}
+.c-wfh::before{background:var(--wfh);}
+.c-leave::before{background:var(--leave);}
+.c-emg::before{background:var(--emergency);}
+.c-med::before{background:var(--medical);}
+.c-perm::before{background:var(--perm);}
+.s-label{font-size:0.68rem;font-weight:700;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;}
+.s-count{font-size:2.2rem;font-weight:800;line-height:1;font-family:'JetBrains Mono',monospace;}
+.c-total .s-count{color:var(--primary);}
+.c-wfh   .s-count{color:var(--wfh);}
+.c-leave .s-count{color:var(--leave);}
+.c-emg   .s-count{color:var(--emergency);}
+.c-med   .s-count{color:var(--medical);}
+.c-perm  .s-count{color:var(--perm);}
+
+/* LEGEND */
+.legend{
+  background:var(--surface);border:1.5px solid var(--border);
+  border-radius:12px;padding:12px 20px;margin-bottom:20px;
+  display:flex;gap:18px;flex-wrap:wrap;align-items:center;box-shadow:var(--shadow);
+}
+.leg-item{display:flex;align-items:center;gap:8px;font-size:0.82rem;font-weight:600;color:var(--text2);}
+.led-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;box-shadow:0 0 0 3px #fff,0 0 0 4.5px currentColor;}
+.leg-note{margin-left:auto;font-size:0.77rem;color:var(--text3);font-style:italic;}
+
+/* ADD AGENT */
+.add-bar{display:flex;gap:10px;margin-bottom:20px;align-items:center;flex-wrap:wrap;}
+.inp{
+  background:var(--surface);border:1.5px solid var(--border);
+  border-radius:10px;padding:9px 14px;color:var(--text);
+  font-family:'Plus Jakarta Sans',sans-serif;font-size:0.9rem;font-weight:500;
+  outline:none;transition:border-color 0.18s,box-shadow 0.18s;box-shadow:var(--shadow);
+}
+.inp:focus{border-color:var(--primary);box-shadow:0 0 0 3px #4361ee22;}
+.inp::placeholder{color:var(--text3);}
+.inp-name{flex:1;min-width:180px;max-width:280px;}
+.inp-id{width: 220px;}
+
+/* TABLE */
+.table-card{
+  background:var(--surface);border:1.5px solid var(--border);
+  border-radius:16px;overflow:hidden;box-shadow:var(--shadow-lg);margin-bottom:32px;
+}
+table{width:100%;border-collapse:collapse;}
+thead{background:var(--surface2);border-bottom:1.5px solid var(--border);}
+th{
+  padding:12px 14px;font-size:0.67rem;font-weight:700;
+  letter-spacing:1.2px;color:var(--text3);text-align:left;text-transform:uppercase;
+}
+th.ctr{text-align:center;}
+tbody tr{border-bottom:1px solid #eef1ff;transition:background 0.12s;}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:var(--surface2);}
+td{padding:11px 14px;vertical-align:middle;}
+td.ctr{text-align:center;}
+.a-name{font-weight:700;font-size:0.95rem;color:var(--text);}
+.a-id{font-family:'JetBrains Mono',monospace;font-size:0.68rem;color:var(--text3);margin-top:2px;}
+.row-num{font-family:'JetBrains Mono',monospace;font-size:0.72rem;color:var(--text3);font-weight:600;}
+
+/* LED BUTTONS — radio style */
+.led-btn{
+  width:34px;height:34px;border-radius:50%;border:2px solid;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;
+  background:#fff;transition:all 0.18s;position:relative;
+}
+.led-btn::after{
+  content:'';width:14px;height:14px;border-radius:50%;
+  background:currentColor;opacity:0.22;transition:all 0.18s;
+}
+.led-btn:hover::after{opacity:0.5;}
+.led-btn.active::after{opacity:1;box-shadow:0 0 6px 3px currentColor;}
+.led-btn.active{box-shadow:0 0 0 3px #fff,0 0 0 5px currentColor,0 0 14px currentColor;}
+
+.led-wfh{color:var(--wfh);border-color:var(--wfh-ring);}
+.led-wfh.active{background:var(--wfh-bg);border-color:var(--wfh);}
+.led-leave{color:var(--leave);border-color:var(--leave-ring);}
+.led-leave.active{background:var(--leave-bg);border-color:var(--leave);}
+.led-emg{color:var(--emergency);border-color:var(--emg-ring);}
+.led-emg.active{background:var(--emg-bg);border-color:var(--emergency);}
+.led-med{color:var(--medical);border-color:var(--med-ring);}
+.led-med.active{background:var(--med-bg);border-color:var(--medical);}
+.led-perm{color:var(--perm);border-color:var(--perm-ring);}
+.led-perm.active{background:var(--perm-bg);border-color:var(--perm);}
+
+/* PERMISSION CELL */
+.perm-cell{display:flex;align-items:center;gap:8px;justify-content:center;}
+.perm-input{
+  width:68px;background:var(--perm-bg);
+  border:1.5px solid var(--perm-ring);border-radius:8px;
+  padding:5px 7px;font-family:'JetBrains Mono',monospace;
+  font-size:0.82rem;font-weight:600;color:var(--perm);
+  text-align:center;outline:none;transition:all 0.18s;
+  display:none;
+}
+.perm-input.show{display:block;}
+.perm-input:focus{border-color:var(--perm);box-shadow:0 0 0 3px #10b98120;}
+.perm-input::placeholder{color:#6ee7b7;font-weight:400;}
+.perm-unit{font-size:0.72rem;color:var(--perm);font-weight:700;display:none;}
+.perm-unit.show{display:block;}
+
+/* STATUS BADGE */
+.badge{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:4px 10px;border-radius:20px;
+  font-size:0.74rem;font-weight:700;letter-spacing:0.3px;white-space:nowrap;
+}
+.badge-dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+.b-present   {background:#ecfdf5;color:#059669;}
+.b-wfh       {background:var(--wfh-bg);color:var(--wfh);}
+.b-leave     {background:var(--leave-bg);color:#d97706;}
+.b-emergency {background:var(--emg-bg);color:var(--emergency);}
+.b-medical   {background:var(--med-bg);color:var(--medical);}
+.b-permission{background:var(--perm-bg);color:#059669;}
+
+/* DELETE BTN */
+.del-btn{
+  width:28px;height:28px;border-radius:7px;border:1.5px solid var(--border);
+  background:transparent;color:var(--text3);cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:0.85rem;transition:all 0.15s;
+}
+.del-btn:hover{border-color:var(--emergency);color:var(--emergency);background:var(--emg-bg);}
+
+/* HISTORY */
+.section-head{
+  display:flex;align-items:center;gap:10px;margin-bottom:14px;
+  font-size:0.72rem;font-weight:700;color:var(--text3);
+  letter-spacing:1.5px;text-transform:uppercase;
+}
+.section-head::after{content:'';flex:1;height:1px;background:var(--border);}
+.hist-wrap{
+  background:var(--surface);border:1.5px solid var(--border);
+  border-radius:14px;overflow:hidden;box-shadow:var(--shadow);
+  max-height:340px;overflow-y:auto;
+}
+.hist-wrap::-webkit-scrollbar{width:5px;}
+.hist-wrap::-webkit-scrollbar-track{background:var(--surface2);}
+.hist-wrap::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+.empty{text-align:center;padding:40px;color:var(--text3);font-size:0.88rem;}
+
+/* TOAST */
+.toast{
+  position:fixed;bottom:24px;right:24px;
+  background:var(--surface);border:1.5px solid var(--primary);color:var(--primary);
+  padding:12px 20px;border-radius:10px;font-size:0.88rem;font-weight:700;
+  box-shadow:var(--shadow-lg);z-index:9999;animation:toastIn 0.25s ease;transition:opacity 0.35s;
+}
+.toast.hide{opacity:0;}
+@keyframes toastIn{from{transform:translateY(16px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+
+@media(max-width:900px){
+  th,td{padding:9px 8px;}
+  .led-btn{width:28px;height:28px;}
+  .led-btn::after{width:11px;height:11px;}
+  .perm-input{width:56px;}
+  header{padding:0 16px;}
+  .main{padding:18px 12px 50px;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+    </div>
+    AgentPulse
+  </div>
+  <div class="date-chip" id="headerDate"></div>
+</header>
+
+<div class="main">
+
+  <!-- Controls -->
+  <div class="controls-bar">
+    <div class="date-wrap">
+      <label>Date</label>
+      <input type="date" id="datePicker">
+    </div>
+    <button class="btn btn-green" onclick="exportToExcel()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export Excel
+    </button>
+    <button class="btn btn-red" onclick="clearDay()" style="margin-left:auto">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+      Clear Day
+    </button>
+  </div>
+
+  <!-- Summary -->
+  <div class="summary-grid">
+    <div class="s-card c-total"><div class="s-label">Total Agents</div><div class="s-count" id="sumTotal">0</div></div>
+    <div class="s-card c-wfh">  <div class="s-label">Work From Home</div><div class="s-count" id="sumWfh">0</div></div>
+    <div class="s-card c-leave"><div class="s-label">Leave</div><div class="s-count" id="sumLeave">0</div></div>
+    <div class="s-card c-emg">  <div class="s-label">Emergency</div><div class="s-count" id="sumEmg">0</div></div>
+    <div class="s-card c-med">  <div class="s-label">Medical Leave</div><div class="s-count" id="sumMed">0</div></div>
+    <div class="s-card c-perm"> <div class="s-label">Permission</div><div class="s-count" id="sumPerm">0</div></div>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="leg-item"><span class="led-dot" style="color:var(--wfh)"></span>Work From Home</div>
+    <div class="leg-item"><span class="led-dot" style="color:var(--leave)"></span>Leave</div>
+    <div class="leg-item"><span class="led-dot" style="color:var(--emergency)"></span>Emergency / Unplanned</div>
+    <div class="leg-item"><span class="led-dot" style="color:var(--medical)"></span>Medical Leave</div>
+    <div class="leg-item"><span class="led-dot" style="color:var(--perm)"></span>Permission (enter hours)</div>
+  </div>
+
+  <!-- Add Agent -->
+  <div class="add-bar">
+    <input class="inp inp-name" type="text" id="agentNameInp" placeholder="Agent Name" maxlength="50">
+    <input class="inp inp-id"   type="text" id="agentIdInp"   placeholder="Agent ID (optional)" maxlength="30">
+    <button class="btn btn-primary" onclick="addAgent()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Agent
+    </button>
+  </div>
+
+  <!-- Table -->
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Agent</th>
+          <th class="ctr">WFH</th>
+          <th class="ctr">Leave</th>
+          <th class="ctr">Emergency</th>
+          <th class="ctr">Medical</th>
+          <th class="ctr">Permission</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="agentBody">
+        <tr><td colspan="9"><div class="empty">No agents yet — add one above to get started.</div></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- History -->
+  <div class="section-head">Attendance History</div>
+  <div class="hist-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th><th>Agent</th><th>ID</th>
+          <th class="ctr">WFH</th><th class="ctr">Leave</th>
+          <th class="ctr">Emergency</th><th class="ctr">Medical</th>
+          <th class="ctr">Permission</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="histBody">
+        <tr><td colspan="9"><div class="empty">No history yet.</div></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <button class="btn btn-green" onclick="exportToExcel()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download Full History
+    </button>
+    <span style="font-size:0.8rem;color:var(--text3)">All records auto-saved in browser.</span>
+  </div>
+
+</div>
+
+<script>
+// ── STATE ──────────────────────────────────────
+let agents  = JSON.parse(localStorage.getItem('apt_agents')  || '[]');
+let history = JSON.parse(localStorage.getItem('apt_history') || '[]');
+
+// ── INIT ───────────────────────────────────────
+function init() {
+  const dp = document.getElementById('datePicker');
+  const today = new Date();
+  dp.value = iso(today);
+  document.getElementById('headerDate').textContent =
+    today.toLocaleDateString('en-GB',{weekday:'long',year:'numeric',month:'short',day:'numeric'});
+  dp.addEventListener('change', render);
+  render(); renderHistory();
+}
+function iso(d){ return d.toISOString().split('T')[0]; }
+function selDate(){ return document.getElementById('datePicker').value; }
+
+// ── AGENTS ─────────────────────────────────────
+function addAgent(){
+  const nI = document.getElementById('agentNameInp');
+  const iI = document.getElementById('agentIdInp');
+  const name = nI.value.trim();
+  if(!name){ toast('Enter an agent name.','red'); return; }
+  agents.push({
+    id: Date.now().toString(),
+    agentId: iI.value.trim() || 'AGT-'+String(agents.length+1).padStart(3,'0'),
+    name
+  });
+  localStorage.setItem('apt_agents',JSON.stringify(agents));
+  nI.value=''; iI.value='';
+  render();
+  toast('Agent added: '+name);
+}
+
+function removeAgent(id){
+  if(!confirm('Remove this agent?')) return;
+  agents = agents.filter(a=>a.id!==id);
+  localStorage.setItem('apt_agents',JSON.stringify(agents));
+  render();
+}
+
+// ── ATTENDANCE ─────────────────────────────────
+function aKey(agentId,date){ return `apt_att_${date}_${agentId}`; }
+
+function getAtt(agentId){
+  const s = localStorage.getItem(aKey(agentId,selDate()));
+  return s ? JSON.parse(s) : {wfh:false,leave:false,emergency:false,medical:false,permission:false,permHours:''};
+}
+
+// RADIO-STYLE: clicking active LED turns it off; clicking inactive one
+// turns it on and all others off.
+function setAtt(agentId, type){
+  const att = getAtt(agentId);
+  const wasOn = att[type];
+  // reset all
+  att.wfh=att.leave=att.emergency=att.medical=att.permission=false;
+  if(!wasOn) att[type]=true;
+  if(!att.permission) att.permHours='';
+  localStorage.setItem(aKey(agentId,selDate()),JSON.stringify(att));
+  upsertHist(agentId,att);
+  render();
+  if(att.permission){
+    setTimeout(()=>{ const el=document.getElementById('ph-'+agentId); if(el)el.focus(); },60);
+  }
+}
+
+function setPermHours(agentId,val){
+  const att = getAtt(agentId);
+  att.permHours = val;
+  localStorage.setItem(aKey(agentId,selDate()),JSON.stringify(att));
+  upsertHist(agentId,att);
+  renderHistory();
+  updateSummary(agents.map(a=>({agent:a,att:getAtt(a.id)})));
+}
+
+function clearDay(){
+  const date=selDate();
+  if(!confirm('Clear all attendance for '+date+'?')) return;
+  agents.forEach(a=>localStorage.removeItem(aKey(a.id,date)));
+  history=history.filter(h=>h.date!==date);
+  localStorage.setItem('apt_history',JSON.stringify(history));
+  render(); renderHistory();
+  toast('Cleared: '+date,'red');
+}
+
+function upsertHist(agentId,att){
+  const date=selDate();
+  const agent=agents.find(a=>a.id===agentId); if(!agent) return;
+  const rec={date,agentId,agentName:agent.name,agentCode:agent.agentId,...att};
+  const idx=history.findIndex(h=>h.agentId===agentId&&h.date===date);
+  if(idx>-1) history[idx]=rec; else history.push(rec);
+  history.sort((a,b)=>b.date.localeCompare(a.date));
+  localStorage.setItem('apt_history',JSON.stringify(history));
+  renderHistory();
+}
+
+function statusOf(att){
+  if(att.wfh)        return{label:'WFH',cls:'b-wfh'};
+  if(att.leave)      return{label:'Leave',cls:'b-leave'};
+  if(att.emergency)  return{label:'Emergency',cls:'b-emergency'};
+  if(att.medical)    return{label:'Medical Leave',cls:'b-medical'};
+  if(att.permission) return{label:att.permHours?`Permission (${att.permHours}h)`:'Permission',cls:'b-permission'};
+  return{label:'Present',cls:'b-present'};
+}
+
+// ── RENDER TABLE ───────────────────────────────
+function render(){
+  const tbody=document.getElementById('agentBody');
+  if(!agents.length){
+    tbody.innerHTML='<tr><td colspan="9"><div class="empty">No agents yet — add one above.</div></td></tr>';
+    updateSummary([]); return;
+  }
+  const atts=agents.map(a=>({agent:a,att:getAtt(a.id)}));
+  tbody.innerHTML=atts.map(({agent,att},i)=>{
+    const st=statusOf(att);
+    return `
+    <tr>
+      <td><span class="row-num">${String(i+1).padStart(2,'0')}</span></td>
+      <td><div class="a-name">${esc(agent.name)}</div><div class="a-id">${esc(agent.agentId)}</div></td>
+      <td class="ctr">
+        <button class="led-btn led-wfh ${att.wfh?'active':''}" title="Work From Home"
+          onclick="setAtt('${agent.id}','wfh')"></button>
+      </td>
+      <td class="ctr">
+        <button class="led-btn led-leave ${att.leave?'active':''}" title="Leave"
+          onclick="setAtt('${agent.id}','leave')"></button>
+      </td>
+      <td class="ctr">
+        <button class="led-btn led-emg ${att.emergency?'active':''}" title="Emergency / Unplanned"
+          onclick="setAtt('${agent.id}','emergency')"></button>
+      </td>
+      <td class="ctr">
+        <button class="led-btn led-med ${att.medical?'active':''}" title="Medical Leave"
+          onclick="setAtt('${agent.id}','medical')"></button>
+      </td>
+      <td class="ctr">
+        <div class="perm-cell">
+          <button class="led-btn led-perm ${att.permission?'active':''}" title="Permission"
+            onclick="setAtt('${agent.id}','permission')"></button>
+          <input id="ph-${agent.id}"
+            class="perm-input ${att.permission?'show':''}"
+            type="number" min="0.5" max="12" step="0.5" placeholder="hrs"
+            value="${esc(att.permHours||'')}"
+            oninput="setPermHours('${agent.id}',this.value)">
+          <span class="perm-unit ${att.permission&&att.permHours?'show':''}">hrs</span>
+        </div>
+      </td>
+      <td><span class="badge ${st.cls}"><span class="badge-dot"></span>${st.label}</span></td>
+      <td><button class="del-btn" onclick="removeAgent('${agent.id}')" title="Remove">✕</button></td>
+    </tr>`;
+  }).join('');
+  updateSummary(atts);
+}
+
+function updateSummary(atts){
+  document.getElementById('sumTotal').textContent=atts.length;
+  document.getElementById('sumWfh').textContent  =atts.filter(x=>x.att.wfh).length;
+  document.getElementById('sumLeave').textContent=atts.filter(x=>x.att.leave).length;
+  document.getElementById('sumEmg').textContent  =atts.filter(x=>x.att.emergency).length;
+  document.getElementById('sumMed').textContent  =atts.filter(x=>x.att.medical).length;
+  document.getElementById('sumPerm').textContent =atts.filter(x=>x.att.permission).length;
+}
+
+// ── RENDER HISTORY ─────────────────────────────
+function renderHistory(){
+  const tbody=document.getElementById('histBody');
+  if(!history.length){
+    tbody.innerHTML='<tr><td colspan="9"><div class="empty">No history yet.</div></td></tr>'; return;
+  }
+  const tick=(c,col)=>c?`<span style="color:${col};font-weight:700">✓</span>`:`<span style="color:var(--border2)">—</span>`;
+  tbody.innerHTML=history.map(h=>{
+    const st=statusOf(h);
+    return `<tr>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;color:var(--text3)">${h.date}</td>
+      <td style="font-weight:600">${esc(h.agentName)}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--text3)">${esc(h.agentCode)}</td>
+      <td class="ctr">${tick(h.wfh,'var(--wfh)')}</td>
+      <td class="ctr">${tick(h.leave,'var(--leave)')}</td>
+      <td class="ctr">${tick(h.emergency,'var(--emergency)')}</td>
+      <td class="ctr">${tick(h.medical,'var(--medical)')}</td>
+      <td class="ctr">${h.permission?`<span style="color:var(--perm);font-weight:700">${h.permHours||'?'}h</span>`:`<span style="color:var(--border2)">—</span>`}</td>
+      <td><span class="badge ${st.cls}"><span class="badge-dot"></span>${st.label}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── EXCEL EXPORT ───────────────────────────────
+function exportToExcel(){
+  if(!history.length){ toast('No history to export yet.','red'); return; }
+  const wb=XLSX.utils.book_new();
+
+  const rows=[['Date','Agent Name','Agent ID','WFH','Leave','Emergency','Medical Leave','Permission','Perm. Hours','Status']];
+  history.forEach(h=>{
+    const st=statusOf(h);
+    rows.push([h.date,h.agentName,h.agentCode,
+      h.wfh?'Yes':'No',h.leave?'Yes':'No',h.emergency?'Yes':'No',h.medical?'Yes':'No',
+      h.permission?'Yes':'No',
+      h.permission&&h.permHours?Number(h.permHours):'',
+      st.label]);
+  });
+  const wsAll=XLSX.utils.aoa_to_sheet(rows);
+  wsAll['!cols']=[{wch:14},{wch:24},{wch:14},{wch:7},{wch:7},{wch:13},{wch:13},{wch:12},{wch:12},{wch:26}];
+  XLSX.utils.book_append_sheet(wb,wsAll,'Full History');
+
+  const dates=[...new Set(history.map(h=>h.date))].sort((a,b)=>b.localeCompare(a));
+  dates.slice(0,20).forEach(date=>{
+    const day=history.filter(h=>h.date===date);
+    const sd=[[`Attendance — ${date}`],[],
+      ['#','Agent','ID','WFH','Leave','Emergency','Medical','Permission','Perm. Hrs','Status']];
+    day.forEach((h,i)=>{
+      const st=statusOf(h);
+      sd.push([i+1,h.agentName,h.agentCode,
+        h.wfh?'✓':'',h.leave?'✓':'',h.emergency?'✓':'',h.medical?'✓':'',
+        h.permission?'✓':'',
+        h.permission&&h.permHours?Number(h.permHours):'',
+        st.label]);
+    });
+    sd.push([]);
+    sd.push(['','TOTALS','',
+      day.filter(h=>h.wfh).length,day.filter(h=>h.leave).length,
+      day.filter(h=>h.emergency).length,day.filter(h=>h.medical).length,
+      day.filter(h=>h.permission).length,'',
+      `${day.filter(h=>!h.wfh&&!h.leave&&!h.emergency&&!h.medical&&!h.permission).length} Present`]);
+    const ws=XLSX.utils.aoa_to_sheet(sd);
+    ws['!cols']=[{wch:4},{wch:22},{wch:12},{wch:7},{wch:7},{wch:12},{wch:10},{wch:12},{wch:12},{wch:26}];
+    XLSX.utils.book_append_sheet(wb,ws,date);
+  });
+
+  XLSX.writeFile(wb,`Agent_Attendance_${iso(new Date())}.xlsx`);
+  toast('Excel downloaded ✓');
+}
+
+// ── UTILS ──────────────────────────────────────
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+let _tt;
+function toast(msg,type){
+  const old=document.querySelector('.toast'); if(old) old.remove();
+  clearTimeout(_tt);
+  const t=document.createElement('div'); t.className='toast'; t.textContent=msg;
+  if(type==='red'){t.style.borderColor='var(--emergency)';t.style.color='var(--emergency)';}
+  document.body.appendChild(t);
+  _tt=setTimeout(()=>{ t.classList.add('hide'); setTimeout(()=>t.remove(),400); },2800);
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('agentNameInp').addEventListener('keydown',e=>{if(e.key==='Enter')addAgent();});
+  document.getElementById('agentIdInp').addEventListener('keydown',  e=>{if(e.key==='Enter')addAgent();});
+  init();
+});
+</script>
+</body>
+</html>
